@@ -18,6 +18,7 @@
 #include "video_core/renderer_vulkan/liverpool_to_vk.h"
 #include "video_core/renderer_vulkan/vk_instance.h"
 #include "video_core/renderer_vulkan/vk_pipeline_serialization.h"
+#include "video_core/renderer_vulkan/vk_rasterizer.h"
 #include "video_core/renderer_vulkan/vk_scheduler.h"
 #include "video_core/renderer_vulkan/vk_shader_util.h"
 
@@ -307,8 +308,9 @@ const Shader::RuntimeInfo& PipelineCache::BuildRuntimeInfo(HwStage stage, SwStag
 }
 
 PipelineCache::PipelineCache(const Instance& instance_, Scheduler& scheduler_,
-                             AmdGpu::Liverpool* liverpool_, u32 sparse_page_shift)
-    : instance{instance_}, scheduler{scheduler_}, liverpool{liverpool_},
+                             AmdGpu::Liverpool* liverpool_, Rasterizer* rasterizer_,
+                             u32 sparse_page_shift)
+    : instance{instance_}, scheduler{scheduler_}, liverpool{liverpool_}, rasterizer{rasterizer_},
       desc_heap{instance, scheduler.GetWorkSemaphore(), DescriptorHeapSizes} {
     const auto& vk12_props = instance.GetVk12Properties();
     profile = Shader::Profile{
@@ -705,13 +707,15 @@ PipelineCache::Result PipelineCache::GetProgram(HwStage hw_stage, SwStage sw_sta
                                                 const Shader::ShaderParams& params,
                                                 Shader::Backend::Bindings& binding) {
     auto runtime_info = BuildRuntimeInfo(hw_stage, sw_stage);
+    const auto is_gpu_mapped = [this](VAddr address) { return rasterizer->IsMapped(address, 1); };
     auto [it_pgm, new_program] = program_cache.try_emplace(params.hash);
     if (new_program) {
         it_pgm.value() = std::make_unique<Program>(hw_stage, sw_stage, params);
         auto& program = it_pgm.value();
         auto start = binding;
         const auto module = CompileModule(program->info, runtime_info, params.code, 0, binding);
-        auto spec = Shader::StageSpecialization(program->info, runtime_info, profile, start);
+        auto spec =
+            Shader::StageSpecialization(program->info, runtime_info, profile, start, is_gpu_mapped);
         const auto perm_hash = HashCombine(params.hash, 0);
 
         RegisterShaderMeta(program->info, spec.fetch_shader_data, spec, perm_hash, 0);
@@ -727,7 +731,7 @@ PipelineCache::Result PipelineCache::GetProgram(HwStage hw_stage, SwStage sw_sta
     info.pgm_base = params.Base(); // Needs to be actualized for inline cbuffer address fixup
     info.user_data = params.user_data;
     info.RefreshFlatBuf();
-    auto spec = Shader::StageSpecialization(info, runtime_info, profile, binding);
+    auto spec = Shader::StageSpecialization(info, runtime_info, profile, binding, is_gpu_mapped);
 
     size_t perm_idx = program->modules.size();
     u64 perm_hash = HashCombine(params.hash, perm_idx);
