@@ -898,7 +898,7 @@ void Rasterizer::BindTextures(const Shader::Info& stage, Shader::Backend::Bindin
             continue;
         }
 
-        if (!memory->IsValidGpuMapping(tsharp.Address(), 0) ||
+        if (!memory->IsValidGpuMapping(tsharp.Address(), 0) || !IsMapped(tsharp.Address(), 1) ||
             !magic_enum::enum_contains(data_fmt) || !magic_enum::enum_contains(num_fmt)) {
             LOG_WARNING(Render_Vulkan,
                         "Rejecting invalid T# address={:#x}, pitch={}, width={}, "
