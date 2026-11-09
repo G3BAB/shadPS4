@@ -284,6 +284,33 @@ constexpr CompMapping RemapSwizzle(const DataFormat format, const CompMapping sw
         result.a = swizzle.r;
         return result;
     }
+    case DataFormat::FormatGB_GR:
+    case DataFormat::FormatBG_RG: {
+        // Packed 4:2:2 viewed as R8G8: one channel holds luma (G), the other alternates
+        // between the two chroma samples (R and B) on even and odd texels.
+        const bool luma_in_red = format == DataFormat::FormatBG_RG;
+        const auto luma = luma_in_red ? CompSwizzle::Red : CompSwizzle::Green;
+        const auto chroma = luma_in_red ? CompSwizzle::Green : CompSwizzle::Red;
+        const auto remap = [&](CompSwizzle c) {
+            switch (c) {
+            case CompSwizzle::Red:
+            case CompSwizzle::Blue:
+                return chroma;
+            case CompSwizzle::Green:
+                return luma;
+            case CompSwizzle::Alpha:
+                return CompSwizzle::One;
+            default:
+                return c;
+            }
+        };
+        return {
+            .r = remap(swizzle.r),
+            .g = remap(swizzle.g),
+            .b = remap(swizzle.b),
+            .a = remap(swizzle.a),
+        };
+    }
     case DataFormat::Format5_6_5: {
         // Remap to a more supported component order.
         CompMapping result;

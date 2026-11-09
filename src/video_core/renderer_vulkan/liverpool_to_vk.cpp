@@ -727,8 +727,12 @@ static constexpr std::array formats{
     // 8_24
     // 24_8
     // X24_8_32
-    // GB_GR
-    // BG_RG
+    // GB_GR - Approximated as R8G8, see RemapSwizzle.
+    CreateSurfaceFormatInfo(AmdGpu::DataFormat::FormatGB_GR, AmdGpu::NumberFormat::Unorm,
+                            vk::Format::eR8G8Unorm),
+    // BG_RG - Approximated as R8G8, see RemapSwizzle.
+    CreateSurfaceFormatInfo(AmdGpu::DataFormat::FormatBG_RG, AmdGpu::NumberFormat::Unorm,
+                            vk::Format::eR8G8Unorm),
     // 5_9_9_9
     CreateSurfaceFormatInfo(AmdGpu::DataFormat::Format5_9_9_9, AmdGpu::NumberFormat::Float,
                             vk::Format::eE5B9G9R9UfloatPack32),
