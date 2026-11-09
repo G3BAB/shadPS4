@@ -542,6 +542,26 @@ bool PipelineCache::RefreshGraphicsKey() {
     return true;
 }
 
+static bool IsPixelShaderNoop(const AmdGpu::Regs& regs) {
+    const auto& control = regs.depth_shader_control;
+    if (control.exec_on_noop || control.z_export_enable || control.stencil_test_val_export_enable ||
+        control.stencil_op_val_export_enable || control.kill_enable || control.mask_export_enable ||
+        control.coverage_to_mask_enable ||
+        (regs.alpha_to_mask.enable && !control.alpha_to_mask_disable)) {
+        return false;
+    }
+    if (regs.color_control.mode == AmdGpu::ColorControl::OperationMode::Disable) {
+        return true;
+    }
+    for (u32 cb = 0; cb < AmdGpu::NUM_COLOR_BUFFERS; ++cb) {
+        if (regs.color_buffers[cb] &&
+            (regs.color_target_mask.GetMask(cb) & regs.color_shader_mask.GetMask(cb))) {
+            return false;
+        }
+    }
+    return true;
+}
+
 bool PipelineCache::RefreshGraphicsStages() {
     const auto& regs = liverpool->regs;
     auto& key = graphics_key;
@@ -573,7 +593,11 @@ bool PipelineCache::RefreshGraphicsStages() {
     infos.fill(nullptr);
     modules.fill(nullptr);
 
-    bind_stage(HwStage::Fragment, SwStage::Fragment);
+    if (IsPixelShaderNoop(regs)) {
+        key.stage_hashes[static_cast<u32>(SwStage::Fragment)] = 0;
+    } else {
+        bind_stage(HwStage::Fragment, SwStage::Fragment);
+    }
 
     const auto* fs_info = infos[static_cast<u32>(SwStage::Fragment)];
     key.mrt_mask = fs_info ? fs_info->mrt_mask : 0u;
