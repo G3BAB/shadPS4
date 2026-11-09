@@ -300,6 +300,11 @@ struct ColorBuffer {
 
     NumberFormat GetFixedNumberFormat() const {
         // There is a small difference between T# and CB number types, account for it.
+        const auto data_fmt = DataFormat(info.format);
+        if (data_fmt == DataFormat::Format10_11_11 || data_fmt == DataFormat::Format11_11_10) {
+            // Assumed float-only in the CB; not yet verified on hardware.
+            return NumberFormat::Float;
+        }
         const auto number_fmt = NumberFormat(info.number_type);
         return number_fmt == NumberFormat::SnormNz ? NumberFormat::Srgb : number_fmt;
     }
