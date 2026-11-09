@@ -4,6 +4,7 @@
 #pragma once
 
 #include <cstring>
+#include <magic_enum/magic_enum.hpp>
 #include "common/alignment.h"
 #include "common/assert.h"
 #include "common/bit_field.h"
@@ -11,6 +12,8 @@
 #include "video_core/amdgpu/tiling.h"
 
 namespace AmdGpu {
+
+constexpr VAddr MAX_GPU_ADDRESS = 1ULL << 40;
 
 // Table 8.5 Buffer Resource Descriptor [Sea Islands Series Instruction Set Architecture]
 struct Buffer {
@@ -198,7 +201,8 @@ struct Image {
     }
 
     bool Valid() const {
-        return (type & 0x8u) != 0;
+        return (type & 0x8u) != 0 && Address() < MAX_GPU_ADDRESS &&
+               magic_enum::enum_contains(GetDataFmt()) && magic_enum::enum_contains(GetNumberFmt());
     }
 
     VAddr Address() const {
