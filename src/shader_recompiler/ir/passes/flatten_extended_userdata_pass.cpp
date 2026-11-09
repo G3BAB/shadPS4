@@ -522,6 +522,8 @@ static bool ComputeOffset(Xbyak::CodeGenerator& c, Xbyak::Reg32 reg, PassInfo& p
             c.mov(reg, ptr[rsi + (offset << 2)]);
             return true;
         }
+        LOG_ERROR(Render_Recompiler, "Offset depends on {} that was not flattened",
+                  magic_enum::enum_name(inst->GetOpcode()));
         return false;
     case IR::Opcode::IAdd32:
         ABORT_ON_FAILURE(EmitComputeOffsetIAdd32(c, reg, pass_info, inst));
@@ -590,6 +592,7 @@ static void VisitPointer(const IR::Value& off_dw, IR::Inst* subtree, PassInfo& p
     if (subtree->GetOpcode() == IR::Opcode::ReadConst && subtree->Flags<u16>() == 0 ||
         subtree->GetOpcode() == IR::Opcode::ReadConstBuffer &&
             subtree->Flags<IR::BufferInstInfo>().flatbuf_off_dw == 0) {
+        LOG_WARNING(Render_Recompiler, "Skipping SRT subtree behind unflattened pointer");
         return;
     }
 
@@ -827,6 +830,7 @@ void FlattenExtendedUserdataPass(IR::Program& program) {
         IR::Inst* base = inst->Arg(0).Inst();
         if (auto* inst = base->Arg(0).TryInst();
             inst && inst->GetOpcode() == IR::Opcode::ReadFirstLane) {
+            LOG_WARNING(Render_Recompiler, "Not flattening read with ReadFirstLane base");
             continue;
         }
         ASSERT_MSG(IsReadConstSource(base->Arg(0)), "ReadConst base low not from constant memory");
