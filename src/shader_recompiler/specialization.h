@@ -189,25 +189,33 @@ struct StageSpecialization {
         return info != nullptr;
     }
 
-    bool operator==(const StageSpecialization& other) const {
-        if (!Valid()) {
-            return false;
-        }
+    enum class Mismatch : u32 {
+        None,
+        VsAttribs,
+        RuntimeInfo,
+        FetchShader,
+        FMasks,
+        Start,
+        Buffer,
+        Image,
+        Sampler,
+    };
 
+    std::pair<Mismatch, u32> FirstMismatch(const StageSpecialization& other) const {
         if (vs_attribs != other.vs_attribs) {
-            return false;
+            return {Mismatch::VsAttribs, 0};
         }
 
         if (runtime_info != other.runtime_info) {
-            return false;
+            return {Mismatch::RuntimeInfo, 0};
         }
 
         if (fetch_shader_data != other.fetch_shader_data) {
-            return false;
+            return {Mismatch::FetchShader, 0};
         }
 
         if (fmasks != other.fmasks) {
-            return false;
+            return {Mismatch::FMasks, 0};
         }
 
         // For VS which only generates geometry and doesn't have any inputs, its start
@@ -215,31 +223,35 @@ struct StageSpecialization {
         // handles this case and prevents generation of redundant permutations. This is also safe
         // for other types of shaders with no bindings.
         if (buffers.empty() && images.empty() && samplers.empty()) {
-            return true;
+            return {Mismatch::None, 0};
         }
 
         if (start != other.start) {
-            return false;
+            return {Mismatch::Start, 0};
         }
 
         u32 binding{};
         for (u32 i = 0; i < buffers.size(); i++) {
             if (other.bitset[binding++] && buffers[i] != other.buffers[i]) {
-                return false;
+                return {Mismatch::Buffer, i};
             }
         }
         for (u32 i = 0; i < images.size(); i++) {
             if (other.bitset[binding++] && images[i] != other.images[i]) {
-                return false;
+                return {Mismatch::Image, i};
             }
         }
 
         for (u32 i = 0; i < samplers.size(); i++) {
             if (samplers[i] != other.samplers[i]) {
-                return false;
+                return {Mismatch::Sampler, i};
             }
         }
-        return true;
+        return {Mismatch::None, 0};
+    }
+
+    bool operator==(const StageSpecialization& other) const {
+        return Valid() && FirstMismatch(other).first == Mismatch::None;
     }
 
     void Serialize(Serialization::Archive& ar) const;

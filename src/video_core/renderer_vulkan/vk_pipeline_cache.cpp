@@ -736,6 +736,30 @@ PipelineCache::Result PipelineCache::GetProgram(HwStage hw_stage, SwStage sw_sta
 
     const auto it = std::ranges::find(program->modules, spec, &Program::Module::spec);
     if (it == program->modules.end()) {
+        using Mismatch = Shader::StageSpecialization::Mismatch;
+        std::pair<Mismatch, u32> closest{};
+        for (const auto& permutation : program->modules) {
+            if (permutation.spec.Valid()) {
+                closest = std::max(closest, permutation.spec.FirstMismatch(spec));
+            }
+        }
+        const auto [reason, index] = closest;
+        std::string detail;
+        if (reason == Mismatch::Image) {
+            const auto& image = spec.images[index];
+            detail = fmt::format(" type={} integer={} srgb={} conversion={} flat_offset={:#x}",
+                                 static_cast<u32>(image.type), image.is_integer, image.is_srgb,
+                                 static_cast<u32>(image.num_conversion),
+                                 info.images[index].sharp_fetch.offsets[0]);
+        } else if (reason == Mismatch::Sampler) {
+            const auto& sampler = spec.samplers[index];
+            detail = fmt::format(" unnormalized={} degamma={} flat_offset={:#x}",
+                                 static_cast<u32>(sampler.force_unnormalized),
+                                 static_cast<u32>(sampler.force_degamma),
+                                 info.samplers[index].sharp_fetch.offsets[0]);
+        }
+        LOG_INFO(Render_Vulkan, "Permutation {} of shader {:#x} needed for {} {}{}", perm_idx,
+                 params.hash, magic_enum::enum_name(reason), index, detail);
         auto new_info = Shader::Info(hw_stage, sw_stage, params);
         module = CompileModule(new_info, runtime_info, params.code, perm_idx, binding);
 
