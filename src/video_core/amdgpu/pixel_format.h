@@ -212,7 +212,15 @@ constexpr DataFormat RemapDataFormat(const DataFormat format) {
     }
 }
 
+constexpr bool IsPackedFloatOnlyFormat(const DataFormat data_format) {
+    // Assumed to always be unsigned float regardless of number format; not verified on hardware.
+    return data_format == DataFormat::Format10_11_11 || data_format == DataFormat::Format11_11_10;
+}
+
 constexpr NumberFormat RemapNumberFormat(const NumberFormat format, const DataFormat data_format) {
+    if (IsPackedFloatOnlyFormat(data_format)) {
+        return NumberFormat::Float;
+    }
     switch (format) {
     case NumberFormat::Unorm: {
         switch (data_format) {
@@ -345,6 +353,9 @@ constexpr CompMapping RemapSwizzle(const DataFormat format, const CompMapping sw
 
 constexpr NumberConversion MapNumberConversion(const NumberFormat num_fmt,
                                                const DataFormat data_fmt) {
+    if (IsPackedFloatOnlyFormat(data_fmt)) {
+        return NumberConversion::None;
+    }
     switch (num_fmt) {
     case NumberFormat::Unorm: {
         switch (data_fmt) {
