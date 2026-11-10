@@ -899,7 +899,7 @@ void Rasterizer::BindTextures(const Shader::Info& stage, Shader::Backend::Bindin
             continue;
         }
 
-        if (!IsMapped(tsharp.Address(), 1)) {
+        if (!IsImageBindable(tsharp)) {
             LOG_WARNING(Render_Vulkan,
                         "Rejecting invalid T# address={:#x}, pitch={}, width={}, "
                         "data_format={}, num_format={}",
@@ -1356,6 +1356,11 @@ bool Rasterizer::IsMapped(VAddr addr, u64 size) {
 
     Common::RecursiveSharedLock lock{mapped_ranges_mutex};
     return boost::icl::contains(mapped_ranges, range);
+}
+
+bool Rasterizer::IsImageBindable(const AmdGpu::Image& image) {
+    return IsMapped(image.Address(), 1) &&
+           LiverpoolToVK::IsSurfaceFormatSupported(image.GetDataFmt(), image.GetNumberFmt());
 }
 
 void Rasterizer::MapMemory(VAddr addr, u64 size) {

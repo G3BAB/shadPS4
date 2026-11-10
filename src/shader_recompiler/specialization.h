@@ -92,7 +92,7 @@ struct StageSpecialization {
 
     StageSpecialization() = default;
     StageSpecialization(const Info& info_, RuntimeInfo runtime_info_, const Profile& profile_,
-                        Backend::Bindings start_, auto&& is_gpu_mapped)
+                        Backend::Bindings start_, auto&& is_image_bindable)
         : info{&info_}, runtime_info{runtime_info_}, start{start_} {
         if (info_.sw_stage == SwStage::Vertex && Gcn::ParseFetchShader(info_, fetch_shader_data)) {
             // Specialize shader on VS input number types to follow spec.
@@ -128,10 +128,7 @@ struct StageSpecialization {
                              spec.element_size = sharp.element_size;
                          }
                      });
-        const auto is_image_mapped = [&](const AmdGpu::Image& sharp) {
-            return is_gpu_mapped(sharp.Address());
-        };
-        ForEachSharp(binding, images, info->images, is_image_mapped,
+        ForEachSharp(binding, images, info->images, is_image_bindable,
                      [&](auto& spec, const auto& desc, AmdGpu::Image sharp) {
                          spec.type = sharp.GetViewType(desc.is_array);
                          spec.is_integer = AmdGpu::IsInteger(sharp.GetNumberFmt());

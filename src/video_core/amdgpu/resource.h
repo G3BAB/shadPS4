@@ -201,8 +201,19 @@ struct Image {
     }
 
     bool Valid() const {
-        return (type & 0x8u) != 0 && Address() < MAX_GPU_ADDRESS &&
-               magic_enum::enum_contains(GetDataFmt()) && magic_enum::enum_contains(GetNumberFmt());
+        if ((type & 0x8u) == 0 || Address() >= MAX_GPU_ADDRESS ||
+            GetDataFmt() == DataFormat::FormatInvalid || !magic_enum::enum_contains(GetDataFmt()) ||
+            !magic_enum::enum_contains(GetNumberFmt()) ||
+            !magic_enum::enum_contains(GetTileMode())) {
+            return false;
+        }
+        const auto image_type = GetType();
+        const bool is_1d =
+            image_type == ImageType::Color1D || image_type == ImageType::Color1DArray;
+        const bool is_msaa =
+            image_type == ImageType::Color2DMsaa || image_type == ImageType::Color2DMsaaArray;
+        return pitch >= width && base_array <= last_array &&
+               (is_msaa || base_level <= last_level) && (!is_1d || height == 0);
     }
 
     VAddr Address() const {

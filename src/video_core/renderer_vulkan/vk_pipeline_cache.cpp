@@ -732,15 +732,17 @@ PipelineCache::Result PipelineCache::GetProgram(HwStage hw_stage, SwStage sw_sta
                                                 const Shader::ShaderParams& params,
                                                 Shader::Backend::Bindings& binding) {
     auto runtime_info = BuildRuntimeInfo(hw_stage, sw_stage);
-    const auto is_gpu_mapped = [this](VAddr address) { return rasterizer->IsMapped(address, 1); };
+    const auto is_image_bindable = [this](const AmdGpu::Image& image) {
+        return rasterizer->IsImageBindable(image);
+    };
     auto [it_pgm, new_program] = program_cache.try_emplace(params.hash);
     if (new_program) {
         it_pgm.value() = std::make_unique<Program>(hw_stage, sw_stage, params);
         auto& program = it_pgm.value();
         auto start = binding;
         const auto module = CompileModule(program->info, runtime_info, params.code, 0, binding);
-        auto spec =
-            Shader::StageSpecialization(program->info, runtime_info, profile, start, is_gpu_mapped);
+        auto spec = Shader::StageSpecialization(program->info, runtime_info, profile, start,
+                                                is_image_bindable);
         const auto perm_hash = HashCombine(params.hash, 0);
 
         RegisterShaderMeta(program->info, spec.fetch_shader_data, spec, perm_hash, 0);
@@ -756,7 +758,8 @@ PipelineCache::Result PipelineCache::GetProgram(HwStage hw_stage, SwStage sw_sta
     info.pgm_base = params.Base(); // Needs to be actualized for inline cbuffer address fixup
     info.user_data = params.user_data;
     info.RefreshFlatBuf();
-    auto spec = Shader::StageSpecialization(info, runtime_info, profile, binding, is_gpu_mapped);
+    auto spec =
+        Shader::StageSpecialization(info, runtime_info, profile, binding, is_image_bindable);
 
     size_t perm_idx = program->modules.size();
     u64 perm_hash = HashCombine(params.hash, perm_idx);
