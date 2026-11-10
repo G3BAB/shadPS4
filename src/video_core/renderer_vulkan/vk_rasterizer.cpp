@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: Copyright 2024-2026 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <fmt/ranges.h>
 #include "common/debug.h"
 #include "core/debug_state.h"
 #include "core/emulator_settings.h"
@@ -904,6 +905,17 @@ void Rasterizer::BindTextures(const Shader::Info& stage, Shader::Backend::Bindin
                         "data_format={}, num_format={}",
                         tsharp.Address(), tsharp.pitch, tsharp.width, static_cast<u32>(data_fmt),
                         static_cast<u32>(num_fmt));
+            const auto& regs = liverpool->regs;
+            LOG_WARNING(Render_Vulkan,
+                        "T# dump: shader={:#x} flat_offset={:#x} cb_mode={} target_mask={:#x} "
+                        "shader_mask={:#x} db_shader={:#x} depth_control={:#x} prim={} "
+                        "user_data=[{:08x}] flat=[{:08x}]",
+                        stage.pgm_hash, image_desc.sharp_fetch.offsets[0],
+                        static_cast<u32>(regs.color_control.mode), regs.color_target_mask.raw,
+                        regs.color_shader_mask.raw, std::bit_cast<u32>(regs.depth_shader_control),
+                        std::bit_cast<u32>(regs.depth_control),
+                        static_cast<u32>(regs.primitive_type), fmt::join(stage.user_data, " "),
+                        fmt::join(stage.flattened_ud_buf, " "));
             image_bindings[num_images++].image_id = {};
             image_descriptor_array_sizes.push_back(1);
             continue;

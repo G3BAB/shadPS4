@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <ranges>
+#include <fmt/ranges.h>
 
 #include "common/hash.h"
 #include "common/io_file.h"
@@ -775,10 +776,15 @@ PipelineCache::Result PipelineCache::GetProgram(HwStage hw_stage, SwStage sw_sta
         std::string detail;
         if (reason == Mismatch::Image) {
             const auto& image = spec.images[index];
-            detail = fmt::format(" type={} integer={} srgb={} conversion={} flat_offset={:#x}",
+            const auto sharp = info.images[index].GetSharp(info);
+            std::array<u32, sizeof(sharp) / sizeof(u32)> raw;
+            std::memcpy(raw.data(), &sharp, sizeof(sharp));
+            detail = fmt::format(" type={} integer={} srgb={} conversion={} flat_offset={:#x} "
+                                 "raw=[{:08x}] user_data=[{:08x}]",
                                  static_cast<u32>(image.type), image.is_integer, image.is_srgb,
                                  static_cast<u32>(image.num_conversion),
-                                 info.images[index].sharp_fetch.offsets[0]);
+                                 info.images[index].sharp_fetch.offsets[0], fmt::join(raw, " "),
+                                 fmt::join(info.user_data, " "));
         } else if (reason == Mismatch::Sampler) {
             const auto& sampler = spec.samplers[index];
             detail = fmt::format(" unnormalized={} degamma={} flat_offset={:#x}",
